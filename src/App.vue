@@ -1,22 +1,40 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-const video = ref(null);
-const currentUrl = ref<string | null>(null)
+import { onUnmounted, ref, useTemplateRef } from 'vue'
+const currentUrl = ref<string | null>(null);
+const isVideoLoaded = ref(false);
+const videoPlayer = useTemplateRef<HTMLVideoElement>('player');
+const previewCanvas = useTemplateRef<HTMLCanvasElement>('preview');
+
+const cleanUp = () => {
+    if (currentUrl.value) {
+      URL.revokeObjectURL(currentUrl.value);
+      currentUrl.value = null;
+    }
+}
+
+window.addEventListener('beforeunload', cleanUp)
 
 const selectVideoFile = (event: Event) => {
+  isVideoLoaded.value = false;
+  cleanUp();
+
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
   if (!file) return;
 
-  if (currentUrl.value) {
-    URL.revokeObjectURL(currentUrl.value);
-  }
-  const url = URL.createObjectURL(file);
-  currentUrl.value = url;
-  video.value.src = url;
 
+  currentUrl.value = URL.createObjectURL(file);
 }
 
+const makePreview = () => {
+  const ctx = previewCanvas.value!.getContext('2d')!
+  const videoPlayerElem = videoPlayer.value!
+  ctx.drawImage(videoPlayerElem, 0, 0, videoPlayerElem.videoWidth, videoPlayerElem.videoHeight)
+}
+
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', cleanUp)
+})
 </script>
 
 <template>
@@ -27,7 +45,7 @@ const selectVideoFile = (event: Event) => {
         <label class="file" title="Выберите видео файл" @change="selectVideoFile">
           <input type="file" accept="video/*" />
         </label>
-        <button class="btn secondary" disabled>Предпросмотр</button>
+        <button class="btn secondary" :disabled="!isVideoLoaded" @click="makePreview">Предпросмотр</button>
         <button class="btn" disabled>Скачать превью</button>
       </div>
     </header>
@@ -36,7 +54,7 @@ const selectVideoFile = (event: Event) => {
       <section class="panel" aria-labelledby="playerLabel">
         <header><h2>Проигрыватель</h2></header>
         <div class="body">
-          <video controls playsinline ref="video"></video>
+          <video ref="player" playsinline :src="currentUrl ?? undefined" @canplay="isVideoLoaded = true"></video>
         </div>
       </section>
 
