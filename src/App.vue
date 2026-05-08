@@ -1,10 +1,30 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { ref } from 'vue'
+const video = ref(null);
+const currentUrl = ref<string | null>(null)
+
+const selectVideoFile = (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+
+  if (currentUrl.value) {
+    URL.revokeObjectURL(currentUrl.value);
+  }
+  const url = URL.createObjectURL(file);
+  currentUrl.value = url;
+  video.value.src = url;
+
+}
+
+</script>
+
 <template>
   <div class="wrap" role="application">
     <header>
       <h1>Генератор превью</h1>
       <div class="controls">
-        <label class="file" title="Выберите видео файл">
+        <label class="file" title="Выберите видео файл" @change="selectVideoFile">
           <input type="file" accept="video/*" />
         </label>
         <button class="btn secondary" disabled>Предпросмотр</button>
@@ -16,7 +36,7 @@
       <section class="panel" aria-labelledby="playerLabel">
         <header><h2>Проигрыватель</h2></header>
         <div class="body">
-          <video controls playsinline></video>
+          <video controls playsinline ref="video"></video>
         </div>
       </section>
 
