@@ -2,10 +2,13 @@
 import { onUnmounted, ref, useTemplateRef } from 'vue'
 const currentUrl = ref<string | null>(null);
 const isVideoLoaded = ref(false);
+const isPreviewLoaded = ref(false);
 const videoPlayer = useTemplateRef<HTMLVideoElement>('player');
 const previewCanvas = useTemplateRef<HTMLCanvasElement>('preview');
 
 const cleanUp = () => {
+  isPreviewLoaded.value = false;
+  previewCanvas.value?.getContext('2d')!.clearRect(0, 0, previewCanvas.value.width, previewCanvas.value.height);
     if (currentUrl.value) {
       URL.revokeObjectURL(currentUrl.value);
       currentUrl.value = null;
@@ -22,14 +25,37 @@ const selectVideoFile = (event: Event) => {
   const file = input.files?.[0];
   if (!file) return;
 
-
   currentUrl.value = URL.createObjectURL(file);
 }
 
 const makePreview = () => {
   const ctx = previewCanvas.value!.getContext('2d')!
-  const videoPlayerElem = videoPlayer.value!
-  ctx.drawImage(videoPlayerElem, 0, 0, videoPlayerElem.videoWidth, videoPlayerElem.videoHeight)
+  const videoPlayerElem = videoPlayer.value!;
+  previewCanvas.value!.width = videoPlayerElem.videoWidth;
+  previewCanvas.value!.height = videoPlayerElem.videoHeight;
+  ctx.drawImage(videoPlayerElem, 0, 0, videoPlayerElem.videoWidth, videoPlayerElem.videoHeight);
+  isPreviewLoaded.value = true;
+}
+
+// const downloadPreview = () => {
+//   const link = document.createElement('a');
+//   link.href = previewCanvas.value!.toDataURL();
+//   link.download = 'preview.png';
+//   link.click();
+// }
+
+const downloadPreview = async () => {
+  const blob = await new Promise<Blob | null>((resolve) => previewCanvas.value!.toBlob(resolve, 'image/png'))
+    if (!blob) {
+      alert('Не удалось сохранить превью');
+      return;
+    }
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'preview.png';
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 onUnmounted(() => {
@@ -46,7 +72,7 @@ onUnmounted(() => {
           <input type="file" accept="video/*" />
         </label>
         <button class="btn secondary" :disabled="!isVideoLoaded" @click="makePreview">Предпросмотр</button>
-        <button class="btn" disabled>Скачать превью</button>
+        <button class="btn" :disabled="!isPreviewLoaded" @click="downloadPreview">Скачать превью</button>
       </div>
     </header>
 
@@ -54,7 +80,7 @@ onUnmounted(() => {
       <section class="panel" aria-labelledby="playerLabel">
         <header><h2>Проигрыватель</h2></header>
         <div class="body">
-          <video ref="player" playsinline :src="currentUrl ?? undefined" @canplay="isVideoLoaded = true"></video>
+          <video ref="player" controls playsinline :src="currentUrl ?? undefined" @canplay="isVideoLoaded = true"></video>
         </div>
       </section>
 
