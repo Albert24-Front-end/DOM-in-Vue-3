@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { onUnmounted, ref, useTemplateRef } from 'vue'
+import VideoPlayer from './components/VideoPlayer.vue';
 const currentUrl = ref<string | null>(null);
 const isVideoLoaded = ref(false);
 const isPreviewLoaded = ref(false);
-const videoPlayer = useTemplateRef<HTMLVideoElement>('player');
+const videoPlayer = useTemplateRef<typeof VideoPlayer>('player');
 const previewCanvas = useTemplateRef<HTMLCanvasElement>('preview');
 
 const cleanUp = () => {
@@ -29,20 +30,11 @@ const selectVideoFile = (event: Event) => {
 }
 
 const makePreview = () => {
-  const ctx = previewCanvas.value!.getContext('2d')!
   const videoPlayerElem = videoPlayer.value!;
-  previewCanvas.value!.width = videoPlayerElem.videoWidth;
-  previewCanvas.value!.height = videoPlayerElem.videoHeight;
-  ctx.drawImage(videoPlayerElem, 0, 0, videoPlayerElem.videoWidth, videoPlayerElem.videoHeight);
+
+  videoPlayerElem.makePreview(previewCanvas.value!);
   isPreviewLoaded.value = true;
 }
-
-// const downloadPreview = () => {
-//   const link = document.createElement('a');
-//   link.href = previewCanvas.value!.toDataURL();
-//   link.download = 'preview.png';
-//   link.click();
-// }
 
 const downloadPreview = async () => {
   const blob = await new Promise<Blob | null>((resolve) => previewCanvas.value!.toBlob(resolve, 'image/png'))
@@ -80,7 +72,7 @@ onUnmounted(() => {
       <section class="panel" aria-labelledby="playerLabel">
         <header><h2>Проигрыватель</h2></header>
         <div class="body">
-          <video ref="player" controls playsinline :src="currentUrl ?? undefined" @canplay="isVideoLoaded = true"></video>
+          <video-player ref="player" :src="currentUrl ?? undefined" @canplay="isVideoLoaded = true"/>
         </div>
       </section>
 
