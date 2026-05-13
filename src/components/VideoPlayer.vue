@@ -7,6 +7,7 @@ defineProps<{
 
 const emit = defineEmits<{
     (e: 'canplay'): void
+    (e: 'metadata', metadata: {width: number; height: number}): void
 }>()
 
 const stats = ref({ resolution: '', duration: '' });
@@ -18,19 +19,30 @@ const updateStats = (e: Event) => {
     stats.value.resolution = `${videoElem.videoWidth}x${videoElem.videoHeight}`;
     stats.value.duration = videoElem.duration.toFixed(2);
     emit('canplay')
+    emit('metadata', {width: videoElem.videoWidth, height: videoElem.videoHeight})
 }
 
-const getFrame = async (): Promise<ImageBitmap | null>=> {
-    if (!videoPlayer.value) return null;
-    return await createImageBitmap(videoPlayer.value);
+const makePreview = (): Promise<Blob> => {
+    const videoElem = videoPlayer.value!
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')!
+    canvas.width = videoElem.videoWidth
+    canvas.height = videoElem.videoHeight
+    ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+
+    return new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(blob)
+            } else {
+                reject(new Error('Не удалось создать Blob'))
+            }
+        })
+    })
 }
 
 defineExpose({
-    getFrame,
-    getVideoSize: () => ({
-        width: videoPlayer.value?.videoWidth || 0,
-        height: videoPlayer.value?.videoHeight || 0
-    })
+    makePreview,
 })
 </script>
 

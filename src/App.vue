@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import { onUnmounted, ref, useTemplateRef } from 'vue'
+import { onUnmounted, ref, computed, useTemplateRef } from 'vue'
 import VideoPlayer from './components/VideoPlayer.vue';
 const currentUrl = ref<string | null>(null);
 const isVideoLoaded = ref(false);
-const isPreviewLoaded = ref(false);
 const videoPlayer = useTemplateRef<typeof VideoPlayer>('player');
 const previewCanvas = useTemplateRef<HTMLCanvasElement>('preview');
 
+const metadata = ref({width: 0, height: 0});
+const previewBlob = ref<Blob | null>(null);
+const isPreviewLoaded = computed(() => previewBlob.value !== null);
+
+const setMetadata = ({width, height}: {width: number; height: number}) => {
+  metadata.value = { width, height }
+}
+
 const cleanUp = () => {
-  isPreviewLoaded.value = false;
+  // isPreviewLoaded.value = false;
+  previewBlob.value = null;
   previewCanvas.value?.getContext('2d')!.clearRect(0, 0, previewCanvas.value.width, previewCanvas.value.height);
     if (currentUrl.value) {
       URL.revokeObjectURL(currentUrl.value);
@@ -30,32 +38,30 @@ const selectVideoFile = (event: Event) => {
 }
 
 const makePreview = async () => {
-  const player = videoPlayer.value!;
-  const canvas = previewCanvas.value!;
-  const ctx = canvas.getContext('2d')!;
+  const videoPlayerElem = videoPlayer.value!;
+  const blob = await videoPlayerElem.makePreview();
+  previewBlob.value = blob; // Сохраняем для скачивания
 
-  const frame = await player.getFrame();
-  const { width, height } = player.getVideoSize();
+  const url = URL.createObjectURL(blob); // Создаем ссылку
+  const img = new Image();
+  img.src = url;
 
-  if (frame && width && height) {
-    canvas.width = width;
-    canvas.height = height;
+  img.onload = () => {
+    const ctx = previewCanvas.value!.getContext('2d')!;
+    ctx.drawImage(img, 0, 0);
 
-    ctx.drawImage(frame, 0, 0, width, height);
+    URL.revokeObjectURL(url); // Очищаем по оригинальной переменной
+    img.src = '';
+  }
 
-    if ('close' in frame) (frame as ImageBitmap).close();
-
-    isPreviewLoaded.value = true;
+  img.onerror = () => {
+    console.error("Ошибка загрузки изображения в Canvas");
+    URL.revokeObjectURL(url);
   }
 }
 
 const downloadPreview = async () => {
-  const blob = await new Promise<Blob | null>((resolve) => previewCanvas.value!.toBlob(resolve, 'image/png'))
-    if (!blob) {
-      alert('Не удалось сохранить превью');
-      return;
-    }
-  const url = URL.createObjectURL(blob);
+  const url = URL.createObjectURL(previewBlob.value!);
   const link = document.createElement('a');
   link.href = url;
   link.download = 'preview.png';
@@ -85,14 +91,14 @@ onUnmounted(() => {
       <section class="panel" aria-labelledby="playerLabel">
         <header><h2>Проигрыватель</h2></header>
         <div class="body">
-          <video-player ref="player" :src="currentUrl ?? undefined" @canplay="isVideoLoaded = true"/>
+          <video-player ref="player" :src="currentUrl ?? undefined" @canplay="isVideoLoaded = true" @metadata="setMetadata"/>
         </div>
       </section>
 
       <aside class="panel" aria-labelledby="previewLabel">
         <header><h2>Превью</h2></header>
         <div class="body">
-          <canvas ref="preview"></canvas>
+          <canvas ref="preview" :width="metadata.width" :height="metadata.height"></canvas>
         </div>
       </aside>
     </div>
