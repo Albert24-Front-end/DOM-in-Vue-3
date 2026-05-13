@@ -20,16 +20,17 @@ const updateStats = (e: Event) => {
     emit('canplay')
 }
 
-const makePreview = (canvas: HTMLCanvasElement) => {
-    const videoElem = videoPlayer.value!
-    const ctx = canvas.getContext('2d')!
-    canvas.width = videoElem.videoWidth
-    canvas.height = videoElem.videoHeight
-    ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+const getFrame = async (): Promise<ImageBitmap | null>=> {
+    if (!videoPlayer.value) return null;
+    return await createImageBitmap(videoPlayer.value);
 }
 
 defineExpose({
-    makePreview
+    getFrame,
+    getVideoSize: () => ({
+        width: videoPlayer.value?.videoWidth || 0,
+        height: videoPlayer.value?.videoHeight || 0
+    })
 })
 </script>
 

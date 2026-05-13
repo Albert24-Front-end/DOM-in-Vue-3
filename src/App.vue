@@ -29,11 +29,24 @@ const selectVideoFile = (event: Event) => {
   currentUrl.value = URL.createObjectURL(file);
 }
 
-const makePreview = () => {
-  const videoPlayerElem = videoPlayer.value!;
+const makePreview = async () => {
+  const player = videoPlayer.value!;
+  const canvas = previewCanvas.value!;
+  const ctx = canvas.getContext('2d')!;
 
-  videoPlayerElem.makePreview(previewCanvas.value!);
-  isPreviewLoaded.value = true;
+  const frame = await player.getFrame();
+  const { width, height } = player.getVideoSize();
+
+  if (frame && width && height) {
+    canvas.width = width;
+    canvas.height = height;
+
+    ctx.drawImage(frame, 0, 0, width, height);
+
+    if ('close' in frame) (frame as ImageBitmap).close();
+
+    isPreviewLoaded.value = true;
+  }
 }
 
 const downloadPreview = async () => {
